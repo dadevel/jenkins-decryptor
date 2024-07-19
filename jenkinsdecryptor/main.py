@@ -105,18 +105,29 @@ def main() -> None:
     entrypoint = ArgumentParser()
     entrypoint.add_argument('masterkey', type=Path, metavar='MASTER_KEY_FILE')
     entrypoint.add_argument('hudsonsecret', type=Path, metavar='HUDSON_SECRET_FILE')
-    entrypoint.add_argument('credential', nargs='+', type=Path, metavar='CREDENTIAL_FILE')
+    entrypoint.add_argument('credential', nargs='+', type=str, metavar='CREDENTIAL_FILE|{BASE64_BLOB}')
     opts = entrypoint.parse_args()
 
     confidentiality_key = get_confidentiality_key(opts.masterkey, opts.hudsonsecret)
-    for encrypted_path in opts.credential:
-        with open(encrypted_path, 'r') as file:
-            encrypted_content = file.read()
+    for encrypted_credential in opts.credential:
+        is_blob = encrypted_credential.startswith('{') and encrypted_credential.endswith('}')
+
+        if is_blob:
+            encrypted_content = encrypted_credential
+        else:
+            encrypted_credential = Path(encrypted_credential)
+            with open(encrypted_credential, 'r') as file:
+                encrypted_content = file.read()
+
         decrypted_content = decrypt_credentials(encrypted_content, confidentiality_key)
-        decrypted_path = encrypted_path.with_suffix(f'.decrypted{encrypted_path.suffix}')
-        print(decrypted_path)
-        with open(decrypted_path, 'w') as file:
-            file.write(decrypted_content)
+
+        if is_blob:
+            print(decrypted_content)
+        else:
+            decrypted_path = encrypted_credential.with_suffix(f'.decrypted{encrypted_credential.suffix}')
+            with open(decrypted_path, 'w') as file:
+                file.write(decrypted_content)
+            print(decrypted_path)
 
 
 if __name__ == '__main__':
